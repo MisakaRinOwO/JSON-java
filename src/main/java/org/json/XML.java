@@ -789,10 +789,11 @@ public class XML {
     public static JSONObject toJSONObject(Reader reader, XMLParserConfiguration config, JSONPointer pointer) throws JSONException {
         JSONObject jo = new JSONObject();
         XMLTokener x = new XMLTokener(reader, config);
+        String[] pathArray = pointer.toString().substring(1).split("/+");
         while (x.more()) {
             x.skipPast("<");
             if(x.more()) {
-                parse(x, jo, null, config, 0, pointer);
+                parse(x, jo, null, config, 0, pathArray);
             }
         }
         return jo;
@@ -800,7 +801,7 @@ public class XML {
 
     // This is the overloaded parse to return the JSONObject given a JSONPointer
     // Should be integrated with the original parse when correctly implemented
-    private static boolean parse(XMLTokener x, JSONObject context, String name, XMLParserConfiguration config, int currentNestingDepth, JSONPointer pointer)
+    private static boolean parse(XMLTokener x, JSONObject context, String name, XMLParserConfiguration config, int currentNestingDepth, String[] pathArray)
             throws JSONException {
         char c;
         int i;
@@ -996,7 +997,7 @@ public class XML {
                                 throw x.syntaxError("Maximum nesting depth of " + config.getMaxNestingDepth() + " reached");
                             }
 
-                            if (parse(x, jsonObject, tagName, config, currentNestingDepth + 1)) {
+                            if (parse(x, jsonObject, tagName, config, currentNestingDepth + 1, pathArray)) {
                                 if (config.getForceList().contains(tagName)) {
                                     // Force the value to be an array
                                     if (jsonObject.length() == 0) {
