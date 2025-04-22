@@ -822,6 +822,7 @@ public class XML {
         // <<
 
         token = x.nextToken();
+        System.out.println(token);
 
         // <!
 
@@ -835,6 +836,7 @@ public class XML {
                 x.back();
             } else if (c == '[') {
                 token = x.nextToken();
+                System.out.println(token);
                 if ("CDATA".equals(token)) {
                     if (x.next() == '[') {
                         string = x.nextCDATA();
@@ -868,6 +870,7 @@ public class XML {
             // Close tag </
 
             token = x.nextToken();
+            System.out.println(token);
             if (name == null) {
                 throw x.syntaxError("Mismatched close tag " + token);
             }
@@ -893,13 +896,16 @@ public class XML {
             for (;;) {
                 if (token == null) {
                     token = x.nextToken();
+                    System.out.println(token);
                 }
                 // attribute = value
                 if (token instanceof String) {
                     string = (String) token;
                     token = x.nextToken();
+                    System.out.println(token);
                     if (token == EQ) {
                         token = x.nextToken();
+                        System.out.println(token);
                         if (!(token instanceof String)) {
                             throw x.syntaxError("Missing value");
                         }
