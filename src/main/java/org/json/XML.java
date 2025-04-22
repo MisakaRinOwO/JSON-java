@@ -312,10 +312,10 @@ public class XML {
 
             token = x.nextToken();
             if (name == null) {
-                throw x.syntaxError("Mismatched close tag " + token);
+                throw x.syntaxError("Mismatched close tag " + token + currentNestingDepth);
             }
             if (!token.equals(name)) {
-                throw x.syntaxError("Mismatched " + name + " and " + token);
+                throw x.syntaxError("Mismatched " + name + " and " + token + currentNestingDepth);
             }
             if (x.nextToken() != GT) {
                 throw x.syntaxError("Misshaped close tag");
@@ -793,7 +793,7 @@ public class XML {
         while (x.more()) {
             x.skipPast("<");
             if(x.more()) {
-                parse(x, jo, null, config, 0, pathArray);
+                parse(x, jo, null, config, 0, pathArray, false, false);
             }
         }
         return jo;
@@ -801,7 +801,7 @@ public class XML {
 
     // This is the overloaded parse to return the JSONObject given a JSONPointer
     // Should be integrated with the original parse when correctly implemented
-    private static boolean parse(XMLTokener x, JSONObject context, String name, XMLParserConfiguration config, int currentNestingDepth, String[] pathArray)
+    private static boolean parse(XMLTokener x, JSONObject context, String name, XMLParserConfiguration config, int currentNestingDepth, String[] pathArray, boolean canBuild, boolean beenMatching)
             throws JSONException {
         char c;
         int i;
@@ -822,8 +822,7 @@ public class XML {
         // <<
 
         token = x.nextToken();
-        System.out.println(token);
-
+        // System.out.println("In " + token + " " + currentNestingDepth);
         // <!
 
         if (token == BANG) {
@@ -836,7 +835,7 @@ public class XML {
                 x.back();
             } else if (c == '[') {
                 token = x.nextToken();
-                System.out.println(token);
+                // System.out.println("2 " + token + " " + currentNestingDepth + " " + beenMatching + " " + canBuild);
                 if ("CDATA".equals(token)) {
                     if (x.next() == '[') {
                         string = x.nextCDATA();
@@ -851,6 +850,7 @@ public class XML {
             i = 1;
             do {
                 token = x.nextMeta();
+                // System.out.println("3 " + token + " " + currentNestingDepth + " " + beenMatching + " " + canBuild);
                 if (token == null) {
                     throw x.syntaxError("Missing '>' after '<!'.");
                 } else if (token == LT) {
@@ -859,6 +859,7 @@ public class XML {
                     i -= 1;
                 }
             } while (i > 0);
+            // System.out.println(context);
             return false;
         } else if (token == QUEST) {
 
@@ -870,7 +871,7 @@ public class XML {
             // Close tag </
 
             token = x.nextToken();
-            System.out.println(token);
+            // System.out.println("closeTag " + token + " " + currentNestingDepth + " " + beenMatching + " " + canBuild);
             if (name == null) {
                 throw x.syntaxError("Mismatched close tag " + token);
             }
@@ -889,6 +890,25 @@ public class XML {
 
         } else {
             tagName = (String) token;
+            boolean beenMatchingCurrent = beenMatching;
+            boolean canBuildCurrent = canBuild;
+            // System.out.println(context + " " + currentNestingDepth);
+
+            // Check if this tag matches our JSONPointer path at current nesting level
+            if (currentNestingDepth < pathArray.length) {
+                if (currentNestingDepth == 0) {
+                    beenMatchingCurrent = tagName.equals(pathArray[currentNestingDepth]);
+                } else {
+                    beenMatchingCurrent = beenMatching && tagName.equals(pathArray[currentNestingDepth]);
+                }
+                
+                // Set canBuild to true if reaching target key
+                if (currentNestingDepth == pathArray.length - 1 && beenMatchingCurrent) {
+                    canBuildCurrent = true;
+                }
+            }
+            System.out.println("currentTag " + token + " " + currentNestingDepth + " " + beenMatchingCurrent + " " + canBuildCurrent);
+
             token = null;
             jsonObject = new JSONObject();
             boolean nilAttributeFound = false;
@@ -896,16 +916,15 @@ public class XML {
             for (;;) {
                 if (token == null) {
                     token = x.nextToken();
-                    System.out.println(token);
+                    // System.out.println("6 " + token + " " + currentNestingDepth + " " + beenMatchingCurrent + " " + canBuildCurrent);
                 }
                 // attribute = value
                 if (token instanceof String) {
                     string = (String) token;
                     token = x.nextToken();
-                    System.out.println(token);
+                    // System.out.println("attributeOfKey " + token + " " + currentNestingDepth + " " + beenMatchingCurrent + " " + canBuildCurrent);
                     if (token == EQ) {
                         token = x.nextToken();
-                        System.out.println(token);
                         if (!(token instanceof String)) {
                             throw x.syntaxError("Missing value");
                         }
@@ -917,7 +936,7 @@ public class XML {
                         } else if(config.getXsiTypeMap() != null && !config.getXsiTypeMap().isEmpty()
                                 && TYPE_ATTR.equals(string)) {
                             xmlXsiTypeConverter = config.getXsiTypeMap().get(token);
-                        } else if (!nilAttributeFound) {
+                        } else if (!nilAttributeFound && canBuildCurrent) {
                             Object obj = stringToValue((String) token);
                             if (obj instanceof Boolean) {
                                 jsonObject.accumulate(string,
@@ -934,40 +953,43 @@ public class XML {
                             }
                         }
                         token = null;
-                    } else {
+                    } else if (canBuildCurrent) {
                         jsonObject.accumulate(string, "");
                     }
-
-
                 } else if (token == SLASH) {
                     // Empty tag <.../>
                     if (x.nextToken() != GT) {
                         throw x.syntaxError("Misshaped tag");
                     }
-                    if (config.getForceList().contains(tagName)) {
-                        // Force the value to be an array
-                        if (nilAttributeFound) {
-                            context.append(tagName, JSONObject.NULL);
-                        } else if (jsonObject.length() > 0) {
-                            context.append(tagName, jsonObject);
+                    
+                    if (canBuildCurrent) {
+                        if (config.getForceList().contains(tagName)) {
+                            // Force the value to be an array
+                            if (nilAttributeFound) {
+                                context.append(tagName, JSONObject.NULL);
+                            } else if (jsonObject.length() > 0) {
+                                context.append(tagName, jsonObject);
+                            } else {
+                                context.put(tagName, new JSONArray());
+                            }
                         } else {
-                            context.put(tagName, new JSONArray());
-                        }
-                    } else {
-                        if (nilAttributeFound) {
-                            context.accumulate(tagName, JSONObject.NULL);
-                        } else if (jsonObject.length() > 0) {
-                            context.accumulate(tagName, jsonObject);
-                        } else {
-                            context.accumulate(tagName, "");
+                            if (nilAttributeFound) {
+                                context.accumulate(tagName, JSONObject.NULL);
+                            } else if (jsonObject.length() > 0) {
+                                context.accumulate(tagName, jsonObject);
+                            } else {
+                                context.accumulate(tagName, "");
+                            }
                         }
                     }
+                    System.out.println(context);
                     return false;
 
                 } else if (token == GT) {
                     // Content, between <...> and </...>
                     for (;;) {
                         token = x.nextContent();
+                        // System.out.println("content " + token + " " + currentNestingDepth + " " + beenMatchingCurrent + " " + canBuild);
                         if (token == null) {
                             if (tagName != null) {
                                 throw x.syntaxError("Unclosed tag " + tagName);
@@ -975,7 +997,7 @@ public class XML {
                             return false;
                         } else if (token instanceof String) {
                             string = (String) token;
-                            if (string.length() > 0) {
+                            if (string.length() > 0 && canBuildCurrent) {
                                 if(xmlXsiTypeConverter != null) {
                                     jsonObject.accumulate(config.getcDataTagName(),
                                             stringToValue(string, xmlXsiTypeConverter));
@@ -1002,35 +1024,39 @@ public class XML {
                             if (currentNestingDepth == config.getMaxNestingDepth()) {
                                 throw x.syntaxError("Maximum nesting depth of " + config.getMaxNestingDepth() + " reached");
                             }
-
-                            if (parse(x, jsonObject, tagName, config, currentNestingDepth + 1, pathArray)) {
-                                if (config.getForceList().contains(tagName)) {
-                                    // Force the value to be an array
-                                    if (jsonObject.length() == 0) {
-                                        context.put(tagName, new JSONArray());
-                                    } else if (jsonObject.length() == 1
-                                            && jsonObject.opt(config.getcDataTagName()) != null) {
-                                        context.append(tagName, jsonObject.opt(config.getcDataTagName()));
-                                    } else {
-                                        context.append(tagName, jsonObject);
-                                    }
-                                } else {
-                                    if (jsonObject.length() == 0) {
-                                        context.accumulate(tagName, "");
-                                    } else if (jsonObject.length() == 1
-                                            && jsonObject.opt(config.getcDataTagName()) != null) {
-                                        context.accumulate(tagName, jsonObject.opt(config.getcDataTagName()));
-                                    } else {
-                                        if (!config.shouldTrimWhiteSpace()) {
-                                            removeEmpty(jsonObject, config);
+                            
+                            // Recursive call
+                            if (parse(x, jsonObject, tagName, config, currentNestingDepth + 1, pathArray, canBuildCurrent, beenMatchingCurrent)) {
+                                if (canBuildCurrent) {
+                                    if (config.getForceList().contains(tagName)) {
+                                        // Force the value to be an array
+                                        if (jsonObject.length() == 0) {
+                                            context.put(tagName, new JSONArray());
+                                        } else if (jsonObject.length() == 1
+                                                && jsonObject.opt(config.getcDataTagName()) != null) {
+                                            context.append(tagName, jsonObject.opt(config.getcDataTagName()));
+                                        } else {
+                                            context.append(tagName, jsonObject);
                                         }
-                                        context.accumulate(tagName, jsonObject);
+                                    } else {
+                                        if (jsonObject.length() == 0) {
+                                            context.accumulate(tagName, "");
+                                        } else if (jsonObject.length() == 1
+                                                && jsonObject.opt(config.getcDataTagName()) != null) {
+                                            context.accumulate(tagName, jsonObject.opt(config.getcDataTagName()));
+                                        } else {
+                                            if (!config.shouldTrimWhiteSpace()) {
+                                                removeEmpty(jsonObject, config);
+                                            }
+                                            context.accumulate(tagName, jsonObject);
+                                        }
                                     }
                                 }
-
+                                // System.out.println(context);
                                 return false;
                             }
                         }
+                        System.out.println("jo: " + jsonObject + " " + currentNestingDepth);
                     }
                 } else {
                     throw x.syntaxError("Misshaped tag");
