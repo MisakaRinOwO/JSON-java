@@ -1426,6 +1426,65 @@ public class XMLTest {
         assertEquals(jsonObject3.getJSONObject("color").getString("value"), "008E97");
     }
 
+    @Test
+    public void testOverloaedXMLToJSONObjectExtractByPointer() {
+        // Associate with XML.java line 783:1119, see README-M2.md.
+        String xmlString1 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"+
+            "<contact>\n"+
+            "  <nick>Crista </nick>\n"+
+            "  <name>Crista Lopes</name>\n" +
+            "  <address>\n" +
+            "    <street>Ave of Nowhere</street>\n" +
+            "    <zipcode>92614</zipcode>\n" +
+            "  </address>\n" +
+            "</contact>";
+
+        // Pointer points to an element
+        StringReader reader1 = new StringReader(xmlString1);
+        JSONPointer pointer1 = new JSONPointer("/contact/address/street/");
+        JSONObject actualJson1 = XML.toJSONObject(reader1, pointer1);
+        String expectedString1 = "{\"street\":\"Ave of Nowhere\"}";
+        JSONObject expectedJson1 = new JSONObject(expectedString1);
+        Util.compareActualVsExpectedJsonObjects(actualJson1,expectedJson1);
+
+        // Pointer points to a JSONObject
+        StringReader reader2 = new StringReader(xmlString1);
+        JSONPointer pointer2 = new JSONPointer("/contact/address/");
+        JSONObject actualJson2 = XML.toJSONObject(reader2, pointer2);
+        String expectedString2 = "{\"address\":{\"zipcode\":92614,\"street\":\"Ave of Nowhere\"}}";
+        JSONObject expectedJson2 = new JSONObject(expectedString2);
+        Util.compareActualVsExpectedJsonObjects(actualJson2,expectedJson2);
+
+        String xmlString2 = 
+            "<?xml version=\"1.0\"?>\n"+ 
+            "<catalog>\n" +
+            "  <book id=\"bk101\">\n" +
+            "    <author>Author 1</author>\n" +
+            "    <title>Book 1</title>\n" +
+            "  </book>\n" +
+            "  <book id=\"bk102\">\n" +
+            "    <author>Author 2</author>\n" +
+            "    <title>Book 2</title>\n" +
+            "  </book>\n" +
+            "</catalog>\n";
+
+        // Pointer points to a JSONArray
+        StringReader reader3 = new StringReader(xmlString2);
+        JSONPointer pointer3 = new JSONPointer("/catalog/book/");
+        JSONObject actualJson3 = XML.toJSONObject(reader3, pointer3);
+        String expectedString3 = "{\"book\":{\"author\":\"Author 1\",\"id\":\"bk101\",\"title\":\"Book 1\"}}";
+        JSONObject expectedJson3 = new JSONObject(expectedString3);
+        Util.compareActualVsExpectedJsonObjects(actualJson3,expectedJson3);
+        
+        // Pointer points to object within a JSONArray
+        StringReader reader4 = new StringReader(xmlString2);
+        JSONPointer pointer4 = new JSONPointer("/catalog/book/author");
+        JSONObject actualJson4 = XML.toJSONObject(reader4, pointer4);
+        String expectedString4 = "{\"author\":\"Author 1\"}";
+        JSONObject expectedJson4 = new JSONObject(expectedString4);
+        Util.compareActualVsExpectedJsonObjects(actualJson4,expectedJson4);
+    }
+
 }
 
 
