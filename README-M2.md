@@ -11,17 +11,15 @@ This overload allows users to:
 
 This feature is not supporting the customized XMLParserConfiguration parameter.
 
-# Feature 1: 
-**extract some smaller sub-object inside, given a JSONPointer**
-
+# Feature 1: extract some smaller sub-object inside, given a JSONPointer
 ```java
 JSONObject toJSONObject(Reader reader, JSONPointer pointer)
 ```
 
-**Restriction**
+**Restriction**<br/>
 Current implementation does not support indices within pointer path.
 
-**Example**
+**Example**<br/>
 Given the following XML file,
 ```xml
 <?xml version="1.0"?> 
@@ -53,23 +51,21 @@ running on the above xml with pointer "catalog/book/author" will only return the
 {"author":"Author 1"}
 ```
 
-**Implementation and Performance**
+**Implementation and Performance**<br/>
 This overloaded method uses a modified parse method to recursively build the JSONObject when reaching elements with tagname matching the pointer path.
 This implementation parses when first key matching the pointer path is found and terminates to return the constructed JSONObject.
 This implementation saves time from the traditional method of using JSONPointer.queryFrom(XML.ToJSONObject) by terminating the recursion
 when target object is found.
 
-# Feature 2: 
-**replace a sub-object on a certain key path with another JSON object, given a JSONPointer and a JSONObject**
-
+# Feature 2: replace a sub-object on a certain key path with another JSON object, given a JSONPointer and a JSONObject
 ```java
 JSONObject toJSONObject(Reader reader, JSONPointer pointer, JSONObject replacement)
 ```
 
-**Restriction**
+**Restriction**<br/>
 Current implementation does not support indices within pointer path.
 
-**Example**
+**Example**<br/>
 Given the following XML file,
 ```xml
 <contact>
@@ -135,11 +131,11 @@ will return
 }
 ```
 
-**Special Note**
+**Special Note**<br/>
 running on the xml from feature 1 with pointer "catalog/book/author"
 will replace every author found with the replacement object.
 
-**Implementation and Performance**
+**Implementation and Performance**<br/>
 This overloaded method uses a modified parse method to recursively build the JSONObject.
 When recursion matches pointer path, a "canReplace" flag will be set to true and insert content of the replacement object with the matching key,
 then the flag is sent to deeper recursions to prevent accumulation of the original XML content.
