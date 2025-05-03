@@ -1428,7 +1428,7 @@ public class XMLTest {
 
     @Test
     public void testOverloaedXMLToJSONObjectExtractByPointer() {
-        // Associate with XML.java line 783:1119, see README-M2.md.
+        // Associate with XML.java line 783:1145, see README-M2.md.
         String xmlString1 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"+
             "<contact>\n"+
             "  <nick>Crista </nick>\n"+
@@ -1483,6 +1483,64 @@ public class XMLTest {
         String expectedString4 = "{\"author\":\"Author 1\"}";
         JSONObject expectedJson4 = new JSONObject(expectedString4);
         Util.compareActualVsExpectedJsonObjects(actualJson4,expectedJson4);
+    }
+
+    @Test
+    public void testOverloaedXMLToJSONObjectReplaceByPointer() {
+        // Associate with XML.java line 783:1119, see README-M2.md.
+        String xmlString1 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"+
+            "<contact>\n"+
+            "  <nick>Crista </nick>\n"+
+            "  <name>Crista Lopes</name>\n" +
+            "  <address>\n" +
+            "    <street>Ave of Nowhere</street>\n" +
+            "    <zipcode>92614</zipcode>\n" +
+            "  </address>\n" +
+            "</contact>";
+
+        // Pointer points to an element, replacement content is element. 
+        StringReader reader1 = new StringReader(xmlString1);
+        JSONPointer pointer1 = new JSONPointer("/contact/address/street/");
+        JSONObject replacement1 = XML.toJSONObject("<street>Ave of the Arts</street>\n");
+        JSONObject actualJson1 = XML.toJSONObject(reader1, pointer1, replacement1);
+        String expectedString1 =  "{\"contact\":{\"nick\":\"Crista\",\"address\":{\"zipcode\":92614,\"street\":\"Ave of the Arts\"},\"name\":\"Crista Lopes\"}}";
+        JSONObject expectedJson1 = new JSONObject(expectedString1);
+        Util.compareActualVsExpectedJsonObjects(actualJson1,expectedJson1);
+
+        // Pointer points to a JSONObject, replacement content is JSONArray. 
+        StringReader reader2 = new StringReader(xmlString1);
+        JSONPointer pointer2 = new JSONPointer("/contact/address/");
+        JSONObject replacement2 = XML.toJSONObject(
+            "  <address>\n" +
+            "    <street>Address insert 1</street>\n" +
+            "    <zipcode>Zipcode insert 1</zipcode>\n" +
+            "  </address>\n" +
+            "  <address>\n" +
+            "    <street>Address insert 2</street>\n" +
+            "    <zipcode>Zipcode insert 2</zipcode>\n" +
+            "  </address>\n");
+        JSONObject actualJson2 = XML.toJSONObject(reader2, pointer2, replacement2);
+        String expectedString2 = "{\n" +
+            "  \"contact\": {\n" +
+            "    \"nick\": \"Crista\",\n" +
+            "    \"address\": [\n" +
+            "      {\n" +
+            "        \"zipcode\": \"Zipcode insert 1\",\n" +
+            "        \"street\": \"Address insert 1\"\n" +
+            "      },\n" +
+            "      {\n" +
+            "        \"zipcode\": \"Zipcode insert 2\",\n" +
+            "        \"street\": \"Address insert 2\"\n" +
+            "      },\n" +
+            "    ],\n" +
+            "    \"name\": \"Crista Lopes\"\n" +
+            "  }\n" +
+            "}";
+        JSONObject expectedJson2 = new JSONObject(expectedString2);
+        System.out.println(expectedJson2);
+        System.out.println(actualJson2);
+        Util.compareActualVsExpectedJsonObjects(actualJson2,expectedJson2);
+        
     }
 
 }

@@ -833,7 +833,7 @@ public class XML {
         while (x.more() && !foundMatch) {
             x.skipPast("<");
             if(x.more()) {
-                // Use array reference
+                // Use array for pass-by-reference behavior to terminate early
                 boolean[] match = new boolean[]{foundMatch};
                 parse(x, jo, null, config, 0, pathArray, false, false, match);
             }
@@ -1205,13 +1205,6 @@ public class XML {
         return jo;
     }
 
-    /*
-     *  Helper function to skip string reader until the closing tag of given tag name
-     */
-    public static void skipPass(Reader x, String name) {
-
-    }
-
     /**
      * Scan the content following the named tag, if tag path matches pointer path,
      * replace it with the replacement.
@@ -1230,8 +1223,8 @@ public class XML {
      *            The array of pointer path.
      * @param replacement
      *            The replacement JSONObject.
-     * @param canBuild
-     *            Flag to indicate key at path end has been found.
+     * @param canReplace
+     *            Flag to indicate key at path end is being replaced.
      * @param beenMatching
      *            Flag to indicate current and previous keys are matching pinter path.
      * @return true if the close tag is processed.
@@ -1304,16 +1297,14 @@ public class XML {
             // Close tag </
 
             token = x.nextToken();
-            if (!canReplace) {
-                if (name == null) {
-                    throw x.syntaxError("Mismatched close tag " + token + currentNestingDepth);
-                }
-                if (!token.equals(name)) {
-                    throw x.syntaxError("Mismatched " + name + " and " + token + currentNestingDepth);
-                }
-                if (x.nextToken() != GT) {
-                    throw x.syntaxError("Misshaped close tag");
-                }
+            if (name == null) {
+                throw x.syntaxError("Mismatched close tag " + token + currentNestingDepth);
+            }
+            if (!token.equals(name)) {
+                throw x.syntaxError("Mismatched " + name + " and " + token + currentNestingDepth);
+            }
+            if (x.nextToken() != GT) {
+                throw x.syntaxError("Misshaped close tag");
             }
             return true;
 
@@ -1339,9 +1330,6 @@ public class XML {
                 // Set canReplaceCurrent to true if reaching target key
                 if (currentNestingDepth == pathArray.length - 1 && beenMatchingCurrent) {
                     canReplaceCurrent = true;
-                    // if(canReplaceCurrent) {
-                    //     context.accumulate(tagName, replacement.get(tagName));
-                    // }
                 }
             }
             // System.out.println(tagName);
@@ -1451,8 +1439,6 @@ public class XML {
                                         jsonObject.accumulate(config.getcDataTagName(), stringToValue((String) token));
                                     }
                                 }
-                            } else {
-                                // context.accumulate(tagName, replacement.get(tagName));
                             }
 
                         } else if (token == LT) {
@@ -1485,6 +1471,16 @@ public class XML {
                                             context.accumulate(tagName, jsonObject);
                                         }
                                     }
+                                } else {
+                                    // Accumulate target key with replacement content
+                                    // Handles JSONArray differently to avoid double bracket
+                                    Object replacementValue = replacement.opt(tagName);
+                                    if (replacementValue instanceof JSONArray) {
+                                        context.put(tagName, replacementValue);
+                                    } else {
+                                        context.accumulate(tagName, replacementValue);
+                                    }
+                                    
                                 }
 
                                 return false;
