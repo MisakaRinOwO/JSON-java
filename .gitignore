@@ -16,3 +16,6 @@ build
 /gradlew
 /gradlew.bat
 .gitmodules
+
+# ignore M2Test
+src/main/java/M2Test
