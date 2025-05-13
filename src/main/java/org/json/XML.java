@@ -1514,8 +1514,7 @@ public class XML {
      * numbers but will instead be the exact value as seen in the XML document.
      *
      * @param reader  The XML source reader.
-     * @param pointer A path for retrieving JSONObject from the XML file
-     * @param replacement The JSONObject to insert
+     * @param keyTransformer The transformation apply to keys
      * @return A JSONObject containing the structured data from the XML string at the pointer destination.
      *         Unlike JSONPointer.queryFrom() that might not returns a JSONObject,
      *         this overloaded method returns a JSONObject with the last path element as key.
@@ -1526,12 +1525,11 @@ public class XML {
     }
 
     /**
-    * Called by toJSONObject(Reader reader, Function<String, String> keyTransformer)
+    * Called by toJSONObject(Reader reader, Function&lt;String, String&gt; keyTransformer)
     * using the ORIGINAL config
     * @param reader  The XML source reader.
     * @param config Configuration options for the parser.
-    * @param pointer A path for retrieving JSONObject from the XML file
-    * @param replacement The JSONObject to insert
+    * @param keyTransformer The transformation apply to keys
     * @return A JSONObject containing the structured data from the XML string at the pointer destination.
     *         Unlike JSONPointer.queryFrom() that might not returns a JSONObject,
     *         this overloaded method returns a JSONObject with the last path element as key.
@@ -1562,6 +1560,8 @@ public class XML {
      *            The XML parser configuration.
      * @param currentNestingDepth
      *            The current nesting depth.
+     * @param keyTransformer 
+     *            The transformation apply to keys
      * @return true if the close tag is processed.
      * @throws JSONException Thrown if any parsing error occurs.
      */
@@ -1603,7 +1603,8 @@ public class XML {
                     if (x.next() == '[') {
                         string = x.nextCDATA();
                         if (string.length() > 0) {
-                            context.accumulate(config.getcDataTagName(), string);
+                            // Apply transformer
+                            context.accumulate(keyTransformer.apply(config.getcDataTagName()), string);
                         }
                         return false;
                     }
@@ -1677,7 +1678,7 @@ public class XML {
                             xmlXsiTypeConverter = config.getXsiTypeMap().get(token);
                         } else if (!nilAttributeFound) {
                             Object obj = stringToValue((String) token);
-                            // Use transformer here
+                            // Apply transformer
                             String transformedTagName = keyTransformer.apply(string);
                             if (obj instanceof Boolean) {
                                 jsonObject.accumulate(transformedTagName,
@@ -1739,27 +1740,25 @@ public class XML {
                         } else if (token instanceof String) {
                             string = (String) token;
                             if (string.length() > 0) {
+                                // Apply transformer
+                                String transformedTagName = keyTransformer.apply(config.getcDataTagName());
                                 if(xmlXsiTypeConverter != null) {
-                                    // Apply transformer
-                                    jsonObject.accumulate(keyTransformer.apply(config.getcDataTagName()),
+                                    jsonObject.accumulate(transformedTagName,
                                             stringToValue(string, xmlXsiTypeConverter));
                                 } else {
                                     Object obj = stringToValue((String) token);
                                     if (obj instanceof Boolean) {
-                                        // Apply transformer
-                                        jsonObject.accumulate(keyTransformer.apply(config.getcDataTagName()),
+                                        jsonObject.accumulate(transformedTagName,
                                                 config.isKeepBooleanAsString()
                                                         ? ((String) token)
                                                         : obj);
                                     } else if (obj instanceof Number) {
-                                        // Apply transformer
-                                        jsonObject.accumulate(keyTransformer.apply(config.getcDataTagName()),
+                                        jsonObject.accumulate(transformedTagName,
                                                 config.isKeepNumberAsString()
                                                         ? ((String) token)
                                                         : obj);
                                     } else {
-                                        // Apply transformer
-                                        jsonObject.accumulate(keyTransformer.apply(config.getcDataTagName()), stringToValue((String) token));
+                                        jsonObject.accumulate(transformedTagName, stringToValue((String) token));
                                     }
                                 }
                             }
@@ -1771,14 +1770,16 @@ public class XML {
                             }
 
                             if (parse(x, jsonObject, tagName, config, currentNestingDepth + 1, keyTransformer)) {
+                                // Apply transformer
                                 String transformedTagName = keyTransformer.apply(tagName);
                                 if (config.getForceList().contains(tagName)) {
                                     // Force the value to be an array
+                                    // Also apply transformer to getcDataTagName
                                     if (jsonObject.length() == 0) {
                                         context.put(transformedTagName, new JSONArray());
                                     } else if (jsonObject.length() == 1
-                                            && jsonObject.opt(config.getcDataTagName()) != null) {
-                                        context.append(transformedTagName, jsonObject.opt(config.getcDataTagName()));
+                                            && jsonObject.opt(keyTransformer.apply(config.getcDataTagName())) != null) {
+                                        context.append(transformedTagName, jsonObject.opt(keyTransformer.apply(config.getcDataTagName())));
                                     } else {
                                         context.append(transformedTagName, jsonObject);
                                     }
@@ -1786,8 +1787,8 @@ public class XML {
                                     if (jsonObject.length() == 0) {
                                         context.accumulate(transformedTagName, "");
                                     } else if (jsonObject.length() == 1
-                                            && jsonObject.opt(config.getcDataTagName()) != null) {
-                                        context.accumulate(transformedTagName, jsonObject.opt(config.getcDataTagName()));
+                                            && jsonObject.opt(keyTransformer.apply(config.getcDataTagName())) != null) {
+                                        context.accumulate(transformedTagName, jsonObject.opt(keyTransformer.apply(config.getcDataTagName())));
                                     } else {
                                         if (!config.shouldTrimWhiteSpace()) {
                                             removeEmpty(jsonObject, config);

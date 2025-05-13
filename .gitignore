@@ -19,3 +19,4 @@ build
 
 # ignore M2Test
 src/main/java/M2Test
+src/main/java/M3Test

@@ -1543,6 +1543,132 @@ public class XMLTest {
         
     }
 
+    @Test
+    public void testOverloaedXMLToJSONObjectTransformKeyAppend() {
+        // Associate with XML.java line 1498:1808, see README-M3.md.
+        String xmlString1 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"+
+            "<contact>\n"+
+            "  <nick>Crista </nick>\n"+
+            "  <name>Crista Lopes</name>\n" +
+            "  <address>\n" +
+            "    <street>Ave of Nowhere</street>\n" +
+            "    <zipcode>92614</zipcode>\n" +
+            "  </address>\n" +
+            "</contact>";
+        // Transformer to append in front of key
+        StringReader reader1 = new StringReader(xmlString1);
+        JSONObject actualJson1 = XML.toJSONObject(reader1, key -> "swe262_" + key);
+        String expectedString1 = "{\n" +
+            "  \"swe262_contact\": {\n" +
+            "    \"swe262_name\": \"Crista Lopes\",\n" +
+            "    \"swe262_nick\": \"Crista\",\n" +
+            "    \"swe262_address\": {\n" +
+            "      \"swe262_street\": \"Ave of Nowhere\",\n" +
+            "      \"swe262_zipcode\": 92614\n" +
+            "    }\n" +
+            "  }\n" +
+            "}";
+        JSONObject expectedJson1 = new JSONObject(expectedString1);
+        Util.compareActualVsExpectedJsonObjects(actualJson1, expectedJson1);
+
+        String xmlString2 = 
+            "<?xml version=\"1.0\"?>\n"+ 
+            "<catalog>\n" +
+            "  <book id=\"bk101\">\n" +
+            "    <author>Author 1</author>\n" +
+            "    <title>Book 1</title>\n" +
+            "  </book>\n" +
+            "  <book id=\"bk102\">\n" +
+            "    <author>Author 2</author>\n" +
+            "    <title>Book 2</title>\n" +
+            "  </book>\n" +
+            "</catalog>\n";
+        // Transformer to append in front of key
+        StringReader reader2 = new StringReader(xmlString2);
+        JSONObject actualJson2 = XML.toJSONObject(reader2, key -> "swe262_" + key);
+        String expectedString2 = "{\n" +
+            "  \"swe262_catalog\": {\n" +
+            "    \"swe262_book\": [\n" +
+            "      {\n" +
+            "        \"swe262_author\": \"Author 1\",\n" +
+            "        \"swe262_id\": \"bk101\",\n" +
+            "        \"swe262_title\": \"Book 1\"\n" +
+            "      },\n" +
+            "      {\n" +
+            "        \"swe262_author\": \"Author 2\",\n" +
+            "        \"swe262_id\": \"bk102\",\n" +
+            "        \"swe262_title\": \"Book 2\"\n" +
+            "      }\n" +
+            "    ]\n" +
+            "  }\n" +
+            "}";
+        JSONObject expectedJson2 = new JSONObject(expectedString2);
+        Util.compareActualVsExpectedJsonObjects(actualJson2, expectedJson2);
+    }
+
+    @Test
+    public void testOverloaedXMLToJSONObjectTransformKeyReversed() {
+        // Associate with XML.java line 1498:1808, see README-M3.md.
+        String xmlString1 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"+
+            "<contact>\n"+
+            "  <nick>Crista </nick>\n"+
+            "  <name>Crista Lopes</name>\n" +
+            "  <address>\n" +
+            "    <street>Ave of Nowhere</street>\n" +
+            "    <zipcode>92614</zipcode>\n" +
+            "  </address>\n" +
+            "</contact>";
+        // Transformer to append in front of key
+        StringReader reader1 = new StringReader(xmlString1);
+        JSONObject actualJson1 = XML.toJSONObject(reader1, key -> new StringBuilder(key).reverse().toString());
+        String expectedString1 = "{\n" +
+            "  \"tcatnoc\": {\n" +
+            "    \"eman\": \"Crista Lopes\",\n" +
+            "    \"kcin\": \"Crista\",\n" +
+            "    \"sserdda\": {\n" +
+            "      \"teerts\": \"Ave of Nowhere\",\n" +
+            "      \"edocpiz\": 92614\n" +
+            "    }\n" +
+            "  }\n" +
+            "}";
+        JSONObject expectedJson1 = new JSONObject(expectedString1);
+        Util.compareActualVsExpectedJsonObjects(actualJson1, expectedJson1);
+
+        String xmlString2 = 
+            "<?xml version=\"1.0\"?>\n"+ 
+            "<catalog>\n" +
+            "  <book id=\"bk101\">\n" +
+            "    <author>Author 1</author>\n" +
+            "    <title>Book 1</title>\n" +
+            "  </book>\n" +
+            "  <book id=\"bk102\">\n" +
+            "    <author>Author 2</author>\n" +
+            "    <title>Book 2</title>\n" +
+            "  </book>\n" +
+            "</catalog>\n";
+        // Transformer to append in front of key
+        StringReader reader2 = new StringReader(xmlString2);
+        JSONObject actualJson2 = XML.toJSONObject(reader2, key -> new StringBuilder(key).reverse().toString());
+        String expectedString2 = "{\n" +
+            "  \"golatac\": {\n" +
+            "    \"koob\": [\n" +
+            "      {\n" +
+            "        \"rohtua\": \"Author 1\",\n" +
+            "        \"di\": \"bk101\",\n" +
+            "        \"eltit\": \"Book 1\"\n" +
+            "      },\n" +
+            "      {\n" +
+            "        \"rohtua\": \"Author 2\",\n" +
+            "        \"di\": \"bk102\",\n" +
+            "        \"eltit\": \"Book 2\"\n" +
+            "      }\n" +
+            "    ]\n" +
+            "  }\n" +
+            "}";
+        JSONObject expectedJson2 = new JSONObject(expectedString2);
+        Util.compareActualVsExpectedJsonObjects(actualJson2, expectedJson2);
+    }
+
 }
 
 
