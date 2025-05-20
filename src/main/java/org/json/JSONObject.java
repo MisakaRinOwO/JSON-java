@@ -16,7 +16,10 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * A JSONObject is an unordered collection of name/value pairs. Its external
@@ -1751,6 +1754,92 @@ public class JSONObject {
     public String optString(String key, String defaultValue) {
         Object object = this.opt(key);
         return NULL.equals(object) ? defaultValue : object.toString();
+    }
+
+    /**
+     * Represent nodes of JSONObject when parsed as tree for toStream method.
+     */
+    public class JSONNode {
+        public final String key;
+        public final Object value;
+        public final String path;
+
+        public JSONNode(String key, Object value, String path) {
+            this.key = key;
+            this.value = value;
+            this.path = path;
+        }
+
+        @Override
+        public String toString() {
+            return path + ":" + value;
+        }
+    }
+    
+    /**
+     * 
+     */
+    public class JSONNodeSpliterator implements Spliterator<JSONNode>{
+        private final Deque<JSONNode> stack = new ArrayDeque<>();
+
+        public JSONNodeSpliterator(JSONObject root) {
+            for (String key : root.keySet()) {
+                Object value = root.get(key);
+                stack.push(new JSONNode(key, value, key));
+            }
+        }
+
+        @Override
+        public boolean tryAdvance(Consumer<? super JSONNode> action) {
+            while (!stack.isEmpty()) {
+                JSONNode curNode = stack.pop();
+                action.accept(curNode);
+
+                if (curNode.value instanceof JSONObject) {
+                    JSONObject jo = (JSONObject) curNode.value;
+                    
+                    for (String key : jo.keySet()) {
+                        Object value = jo.get(key);
+                        String path = curNode.path + "." + key;
+                        stack.push(new JSONNode(key, value, path));
+                    }
+                }  else if (curNode.value instanceof JSONArray) {
+                    JSONArray ja = (JSONArray) curNode.value;
+
+                    for (int i = ja.length() - 1; i >= 0; i--) {
+                        Object item = ja.get(i);
+                        String path = curNode.path + "[" + i + "]";
+                        stack.push(new JSONNode(curNode.path + "[" + i + "]", item, path));
+                    }
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        @Override
+        public Spliterator<JSONNode> trySplit() {
+            return null;
+        }
+
+        @Override
+        public long estimateSize() {
+            return Long.MAX_VALUE;
+        }
+
+        @Override
+        public int characteristics() {
+            return ORDERED | NONNULL;
+        }
+    }
+
+    /**
+     * 
+     */
+    public Stream<JSONNode> toStream() {
+        return StreamSupport.stream(new JSONNodeSpliterator(this), false);
     }
 
     /**

@@ -18,5 +18,6 @@ build
 .gitmodules
 
 # ignore M2Test
-src/main/java/M2Test
-src/main/java/M3Test
+src/main/java/M2Test*
+src/main/java/M3Test*
+src/main/java/M4Test*
