@@ -25,6 +25,8 @@ import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import org.json.CDL;
 import org.json.JSONArray;
@@ -3927,4 +3929,71 @@ public class JSONObjectTest {
         return nestedMap;
     }
 
+    @Test
+    public void testToStreamBasicFiltering(){
+        String xmlStr = "<Books>" +
+                          "<book>" +
+                            "<title>AAA</title>" +
+                            "<author>ASmith</author>" +
+                          "</book>" +
+                          "<book>" +
+                            "<title>BBB</title>" +
+                            "<author>BSmith</author>" +
+                          "</book>" +
+                        "</Books>";
+        JSONObject obj = XML.toJSONObject(xmlStr);
+        // Filter by key
+        List<String> titles = obj.toStream().filter(node -> "title".equals(node.key))
+                                            .map(node -> node.value.toString())
+                                            .collect(Collectors.toList());
+        assertEquals(titles, Arrays.asList("AAA", "BBB"));
+
+        // Filter by key type and prefix
+        List<String> stringStartsWithA = obj.toStream().filter(node -> node.value instanceof String && ((String) node.value).startsWith("A"))
+                                            .map(node -> node.value.toString())
+                                            .collect(Collectors.toList());
+        assertEquals(stringStartsWithA, Arrays.asList("AAA", "ASmith"));
+
+        // Collect keys, ignoring array index keys
+        Set<String> keys = obj.toStream().filter(node -> !node.key.contains("["))
+                                         .map(node -> node.key.toString())
+                                         .collect(Collectors.toSet());
+        assertEquals(keys, Set.of("Books", "book", "title", "author"));
+    }
+
+    @Test
+    public void testToStreamTypeFiltering() {
+        JSONObject obj = new JSONObject()
+                .put("stringValue", "hello")
+                .put("stringValue2", "hellotoo")
+                .put("intValue", 42)
+                .put("boolValue", true)
+                .put("arrayValue", new JSONArray("[1,2,3]"));
+        
+        // Filter by value type
+        Set<String> stringValues = obj.toStream()
+                .filter(node -> node.value instanceof String)
+                .map(node -> node.value.toString())
+                .collect(Collectors.toSet());
+        
+        assertEquals(Set.of("hello", "hellotoo"), stringValues);
+        
+        // Filter for numbers
+        List<Number> numberValues = obj.toStream()
+                .filter(node -> node.value instanceof Number)
+                .map(node -> (Number) node.value)
+                .collect(Collectors.toList());
+        
+        assertEquals(Arrays.asList(1, 2, 3, 42), numberValues);
+
+        // Count total nodes
+        long totalCount = obj.toStream().count();
+        assertEquals(8, totalCount);
+        
+        // Count string values
+        long stringCount = obj.toStream()
+                .filter(node -> node.value instanceof String)
+                .count();
+        assertEquals(2, stringCount);
+    }
 }

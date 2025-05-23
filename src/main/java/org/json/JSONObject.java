@@ -1777,7 +1777,9 @@ public class JSONObject {
     }
     
     /**
-     * 
+     * Spliterator for traversing JSONObject and JSONArray structures.
+     * This spliterator provides a depth-first traversal of the JSON structure, converting
+     * each element into a JSONNode that contains the element's key, value, and path.
      */
     public class JSONNodeSpliterator implements Spliterator<JSONNode>{
         private final Deque<JSONNode> stack = new ArrayDeque<>();
@@ -1836,7 +1838,9 @@ public class JSONObject {
     }
 
     /**
-     * 
+     * Returns a sequential Stream with this JSONObject as its source.
+     * The Stream provides a way to process the key-value pairs of this JSONObject
+     * as JSONNode instances.
      */
     public Stream<JSONNode> toStream() {
         return StreamSupport.stream(new JSONNodeSpliterator(this), false);
