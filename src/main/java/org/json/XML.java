@@ -9,7 +9,10 @@ import java.io.StringReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Iterator;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This provides static methods to convert an XML text into a JSONObject, and to
@@ -1889,6 +1892,62 @@ public class XML {
      */
     public static JSONObject toJSONObject(String string, XMLParserConfiguration config) throws JSONException {
         return toJSONObject(new StringReader(string), config);
+    }
+
+    /* Class level shared thread pool for asynchronous toJSONObject methods */
+    private static final ExecutorService SHARED_EXECUTOR = 
+        java.util.concurrent.Executors.newCachedThreadPool(
+            r -> {
+                Thread t = new Thread(r);
+                return t;
+            }
+        );
+
+    /* Track avtive tasks */
+    private static final AtomicInteger activeTasks = new AtomicInteger(0);
+
+    /**
+     * The asynchronous toJSONObject method
+     * 
+     * @param string The XML source reader.
+     * @param onSuccess Consumer to handle successful JSON object creation
+     * @param onError Consumer to handle exceptions
+     * @return An empty JSONObject immediately while processing continues asynchronously
+     */
+    public static JSONObject toJSONObject(StringReader string, Consumer<JSONObject> onSuccess, Consumer<Exception> onError) {
+        activeTasks.incrementAndGet();
+
+        SHARED_EXECUTOR.submit(() -> {
+            try {
+                JSONObject result = toJSONObject(string);
+                if (onSuccess != null) {
+                    onSuccess.accept(result);
+                }
+            } catch (Exception e) {
+                if (onError != null) {
+                    onError.accept(e);
+                }
+            } finally {
+                activeTasks.decrementAndGet();
+                checkAndShutdown();
+            }
+        });
+        
+        return new JSONObject();
+    }
+
+    /*
+     * Check active tasks and shut down if SHARED_EXECUTOR is empty.
+     */
+    private static void checkAndShutdown() {
+        if (activeTasks.get() == 0) {
+            synchronized (SHARED_EXECUTOR) {
+                if (activeTasks.get() == 0) {
+                    SHARED_EXECUTOR.shutdown();
+                }
+            }
+        }
+        
     }
 
     /**
