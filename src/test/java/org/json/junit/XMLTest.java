@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.json.*;
+import org.junit.AfterClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -1744,8 +1745,6 @@ public class XMLTest {
         // Verify internal tasks finished
         assertEquals("All tasks should be completed", 0, XML.activeTasks.get());
 
-        // Shutdown manually
-        XML.shutdownAsyncExecutor();
     }
 
     @Test
@@ -1774,6 +1773,12 @@ public class XMLTest {
 
         assertNotNull("Error should occur", error.get());
         assertTrue("Should be JSONException", error.get() instanceof JSONException);
+    }
+
+    @AfterClass
+    public static void cleanupExecutor() {
+        // Cleans up XML Executor after all async tests
+        XML.shutdownAsyncExecutor();
     }
 
 }
