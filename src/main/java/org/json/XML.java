@@ -1904,7 +1904,7 @@ public class XML {
         );
 
     /* Track avtive tasks */
-    private static final AtomicInteger activeTasks = new AtomicInteger(0);
+    public static final AtomicInteger activeTasks = new AtomicInteger(0);
 
     /**
      * The asynchronous toJSONObject method
@@ -1929,7 +1929,6 @@ public class XML {
                 }
             } finally {
                 activeTasks.decrementAndGet();
-                checkAndShutdown();
             }
         });
         
@@ -1937,17 +1936,10 @@ public class XML {
     }
 
     /*
-     * Check active tasks and shut down if SHARED_EXECUTOR is empty.
+     * Shutdown SHARED_EXECUTOR manually.
      */
-    private static void checkAndShutdown() {
-        if (activeTasks.get() == 0) {
-            synchronized (SHARED_EXECUTOR) {
-                if (activeTasks.get() == 0) {
-                    SHARED_EXECUTOR.shutdown();
-                }
-            }
-        }
-        
+    public static void shutdownAsyncExecutor() {
+        SHARED_EXECUTOR.shutdown();
     }
 
     /**

@@ -8,6 +8,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
 import java.io.File;
@@ -21,6 +23,11 @@ import java.io.StringReader;
 import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.json.*;
 import org.junit.Rule;
@@ -1667,6 +1674,106 @@ public class XMLTest {
             "}";
         JSONObject expectedJson2 = new JSONObject(expectedString2);
         Util.compareActualVsExpectedJsonObjects(actualJson2, expectedJson2);
+    }
+
+    // Helper function to generate large XML string
+    private String generateLargeXMLString(int elementCount) {
+        StringBuilder sb = new StringBuilder("<root>");
+        for (int i = 0; i < elementCount; i++) {
+            sb.append("<item>")
+            .append("<id>").append(i).append("</id>")
+            .append("<name>Item").append(i).append("</name>")
+            .append("<value>").append(i * 10).append("</value>")
+            .append("</item>");
+        }
+        sb.append("</root>");
+        return sb.toString();
+    }
+
+    @Test
+    public void testAsyncToJSONObjectSuccess() throws InterruptedException {
+        // Create 5 toJSONObject processes and validate internal thread for converting
+        // XML finishes, and callback functions are properly called
+        int numProcess = 5;
+        CountDownLatch latch = new CountDownLatch(numProcess);
+        List<AtomicReference<JSONObject>> results = new ArrayList<>();
+        List<AtomicReference<Exception>> errors = new ArrayList<>();
+        
+        for (int i = 0; i < numProcess; i++) {
+            results.add(new AtomicReference<>());
+            errors.add(new AtomicReference<>());
+        }
+
+        for (int i = 0; i < numProcess; i++) {
+            final int index = i;
+            StringReader reader = new StringReader(generateLargeXMLString(i + 1));
+            XML.toJSONObject(reader,
+                jsonObject -> {
+                    results.get(index).set(jsonObject);
+                    latch.countDown();
+                },
+                exception -> {
+                    errors.get(index).set(exception);
+                    latch.countDown();
+                }
+            );
+        }
+
+        // Wait for callback functions to finish
+        assertTrue("All callback function should complete within 10 seconds", 
+               latch.await(10, TimeUnit.SECONDS));
+    
+        // Verify all operations completed successfully
+        for (int i = 0; i < numProcess; i++) {
+            assertNull("No error should occur" + i, errors.get(i).get());
+            assertNotNull("Result should not be null" + i, results.get(i).get());
+            JSONObject root = results.get(i).get().getJSONObject("root");
+            if (i == 0) {
+                assertEquals(i, root.getJSONObject("item").getInt("id"));
+            } else {
+                assertEquals(i, root.getJSONArray("item").getJSONObject(i).getInt("id"));
+            }
+        }
+
+        // Wait for internal tasks to finish
+        long startTime = System.currentTimeMillis();
+        while (XML.activeTasks.get() > 0 && (System.currentTimeMillis() - startTime) < 5000) {
+            Thread.sleep(50);
+        }
+        
+        // Verify internal tasks finished
+        assertEquals("All tasks should be completed", 0, XML.activeTasks.get());
+
+        // Shutdown manually
+        XML.shutdownAsyncExecutor();
+    }
+
+    @Test
+    public void testAsyncToJSONObjectError() throws InterruptedException {
+        // Test Error callback are being called when encountering malformed XML
+        String malformedXML = "<root><unclosed>test";
+        StringReader reader = new StringReader(malformedXML);
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<JSONObject> result = new AtomicReference<>();
+        AtomicReference<Exception> error = new AtomicReference<>();
+
+        XML.toJSONObject(reader,
+            jsonObject -> {
+                result.set(jsonObject);
+                latch.countDown();
+            },
+            exception -> {
+                error.set(exception);
+                latch.countDown();
+            }
+        );
+
+        // Wait for callback functions to finish
+        assertTrue("All callback function should complete within 10 seconds", 
+               latch.await(10, TimeUnit.SECONDS));
+
+        assertNotNull("Error should occur", error.get());
+        assertTrue("Should be JSONException", error.get() instanceof JSONException);
     }
 
 }
