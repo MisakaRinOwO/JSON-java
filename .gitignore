@@ -17,8 +17,14 @@ build
 /gradlew.bat
 .gitmodules
 
-# ignore M2Test
+# ignore temp test files
 src/main/java/M2Test*
 src/main/java/M3Test*
 src/main/java/M4Test*
 src/main/java/M5Test*
+
+# ignore compiled classes
+src/main/java/org/json/*.class
+
+# ignore jar file
+src/main/java/*.jar
